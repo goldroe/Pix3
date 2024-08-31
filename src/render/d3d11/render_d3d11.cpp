@@ -5,51 +5,101 @@
 
 global R_D3D11_State *r_d3d11_state;
 
-global const char *r_d3d11_shader_ui =
+global const char *r_d3d11_g_shader_rect =
     "cbuffer Constants : register(b0) {\n"
     "    matrix xform;\n"
     "};\n"
     "\n"
     "struct Vertex_In {\n"
-    "    float2 dst    : POSITION;\n"
-    "    float2 src    : TEXCOORD;\n"
-    "    float4 color  : COLOR;\n"
-    "    float4 style_params : STY; // x = omit_texture,\n"
+    "    float4 dst_rect    : POS;\n"
+    "    float4 src_rect    : TEX;\n"
+    "    float4 color       : COL;\n"
+    "    nointerpolation float4 style : STY;  //x=omit_tex\n"
+    "    uint vertex_id     : SV_VertexID;\n"
     "};\n"
     "\n"
     "struct Vertex_Out {\n"
-    "    float4 pos_h  : SV_POSITION;\n"
-    "    float2 tex    : TEXCOORD;\n"
-    "    float4 color  : COLOR;\n"
-    "    float omit_texture : OTX;\n"
+    "    float4 pos            : SV_POSITION;\n"
+    "    nointerpolation float2 rect_half_size_px : PSIZE;\n"
+    "    float2 sdf_sample_pos : SDF;\n"
+    "    float2 src            : TEX;\n"
+    "    float4 color          : COL;\n"
+    "    nointerpolation float border_thickness_px  : BTP;\n"
+    "    nointerpolation float omit_tex             : OTX;\n"
     "};\n"
     "\n"
-    "Texture2D tex : register(t0);\n"
+    "Texture2D main_tex : register(t0);\n"
     "SamplerState tex_sampler : register(s0);\n"
     "\n"
-    "Vertex_Out vs_main(Vertex_In input) {\n"
-    "    Vertex_Out output;\n"
-    "    output.pos_h = mul(xform, float4(input.dst, 0.0, 1.0));\n"
-    "    output.tex = input.src;\n"
-    "    output.color = input.color;\n"
-    "    output.omit_texture = input.style_params.x;\n"
-    "    return output;\n"
+    "float rect_sdf(float2 sample_pos, float2 size, float radius) {\n"
+    "    return length(max(abs(sample_pos) - size + radius, 0.0)) - radius;\n"
     "}\n"
     "\n"
-    "float4 ps_main(Vertex_Out input) : SV_TARGET {\n"
-    "    float4 tex_color = tex.Sample(tex_sampler, input.tex);\n"
-    "    float4 color;\n"
-    "    if (input.omit_texture) {\n"
-    "        color = input.color;\n"
-    "        color.a *= tex_color.a;\n"
-    "    } else {\n"
-    "        color = tex_color;\n"
+    "Vertex_Out vs_main(Vertex_In vertex) {\n"
+    "    float2 dst_p0 = vertex.dst_rect.xy;\n"
+    "    float2 dst_p1 = vertex.dst_rect.zw;\n"
+    "    float2 src_p0 = vertex.src_rect.xy;\n"
+    "    float2 src_p1 = vertex.src_rect.zw;\n"
+    "\n"
+    "    float2 dst_verts_px[] = {\n"
+    "        float2(dst_p0.x, dst_p1.y),\n"
+    "        float2(dst_p0.x, dst_p0.y),\n"
+    "        float2(dst_p1.x, dst_p1.y),\n"
+    "        float2(dst_p1.x, dst_p0.y)\n"
+    "    };\n"
+    "    float2 src_verts_px[] = {\n"
+    "        float2(src_p0.x, src_p1.y),\n"
+    "        float2(src_p0.x, src_p0.y),\n"
+    "        float2(src_p1.x, src_p1.y),\n"
+    "        float2(src_p1.x, src_p0.y)\n"
+    "    };\n"
+    "\n"
+    "    float2 dst_size_px = abs(dst_p1 - dst_p0);\n"
+    "    float2 dst_verts_pct = float2((vertex.vertex_id >> 1) ? 1.f : 0.f,\n"
+    "                                 (vertex.vertex_id & 1)  ? 0.f : 1.f);\n"
+    "\n"
+    "    float border_thickness_px = vertex.style.x;\n"
+    "    float omit_tex = vertex.style.y;\n"
+    "\n"
+    "    Vertex_Out vertex_out;\n"
+    "    vertex_out.pos = mul(xform, float4(dst_verts_px[vertex.vertex_id], 0, 1));\n"
+    "    vertex_out.src = src_verts_px[vertex.vertex_id];\n"
+    "    vertex_out.color = vertex.color;\n"
+    "    vertex_out.rect_half_size_px = dst_size_px / 2.f;\n"
+    "    vertex_out.sdf_sample_pos = (2.f * dst_verts_pct - 1.f) * vertex_out.rect_half_size_px;\n"
+    "    vertex_out.omit_tex = omit_tex;\n"
+    "    vertex_out.border_thickness_px = border_thickness_px;\n"
+    "    return vertex_out;\n"
+    "}\n"
+    "\n"
+    "float4 ps_main(Vertex_Out vertex) : SV_TARGET {\n"
+    "    float4 tint = vertex.color;\n"
+    "    float4 albedo_sample = float4(1, 1, 1, 1);\n"
+    "    if (vertex.omit_tex < 1.f) {\n"
+    "        albedo_sample = main_tex.Sample(tex_sampler, vertex.src);\n"
     "    }\n"
-    "    return color;\n"
-    "}"
-    ;
+    "\n"
+    "    //@Note SDF border\n"
+    "    float softness = 1.f;\n"
+    "    float2 sdf_sample_pos = vertex.sdf_sample_pos;\n"
+    "    float border_sdf_t = 1;\n"
+    "    if (vertex.border_thickness_px > 0) {\n"
+    "        float border_sdf_s = rect_sdf(sdf_sample_pos, vertex.rect_half_size_px, vertex.border_thickness_px);\n"
+    "        border_sdf_t = 1.f - smoothstep(0, softness * 2.f, border_sdf_s);\n"
+    "    }\n"
+    "\n"
+    "    if (border_sdf_t < 0.001f) {\n"
+    "        discard;\n"
+    "    }\n"
+    "\n"
+    "    float4 final_color;\n"
+    "    final_color = albedo_sample;\n"
+    "    final_color *= tint;\n"
+    "    final_color.a *= border_sdf_t;\n"
+    "    return final_color;\n"
+    "}\n";
 
-global const char *r_d3d11_shader_quad =
+global const char *r_d3d11_g_shader_quad =
     "cbuffer Constants : register(b0) {\n"
     "    matrix xform;\n"
     "};\n"
@@ -405,6 +455,8 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             d3d11_upload_uniform(uniform_buffer, (void *)&quad_uniform, sizeof(D3D11_Uniform_Quad));
             r_d3d11_state->device_context->VSSetConstantBuffers(0, 1, &uniform_buffer);
 
+
+
             int indices_count = vertices_count * 6 / 4;
             Arena *scratch = arena_alloc(get_virtual_allocator(), sizeof(u32) * indices_count);
             u32 *indices = push_array(scratch, u32, indices_count);
@@ -436,9 +488,9 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
         case R_ParamsKind_UI:
         {
             R_Params_UI *params_ui = params.params_ui;
-            int vertices_count = batch.bytes / sizeof(R_2D_Vertex);
-            R_2D_Vertex *vertices = (R_2D_Vertex *)batch.v;
-            if (vertices_count == 0) continue;
+            int rect_count = batch.bytes / sizeof(R_2D_Rect);
+            R_2D_Rect *rects = (R_2D_Rect *)batch.v;
+            if (rect_count == 0) continue;
 
             r_d3d11_state->device_context->PSSetSamplers(0, 1, &r_d3d11_state->samplers[D3D11_SamplerKind_Point]);
 
@@ -460,37 +512,38 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             r_d3d11_state->device_context->PSSetShader(pixel_shader, nullptr, 0);
 
             Rect draw_region = r_d3d11_state->draw_region;
+
             D3D11_Uniform_UI ui_uniform = {};
             ui_uniform.xform = ortho_rh_zo(draw_region.x0, draw_region.x1, draw_region.y1, draw_region.y0, -1.f, 1.f);
+
             ID3D11Buffer *uniform_buffer = r_d3d11_state->uniform_buffers[D3D11_ShaderKind_UI];
             d3d11_upload_uniform(uniform_buffer, (void *)&ui_uniform, sizeof(ui_uniform));
             r_d3d11_state->device_context->VSSetConstantBuffers(0, 1, &uniform_buffer);
 
-            int indices_count = vertices_count * 6 / 4;
-            Arena *scratch = arena_alloc(get_virtual_allocator(), sizeof(u32) * indices_count);
-            u32 *indices = push_array(scratch, u32, indices_count);
-            for (int index = 0, it = 0; index < vertices_count; index += 4) {
-                indices[it++] = index;
-                indices[it++] = index + 1;
-                indices[it++] = index + 2;
-                indices[it++] = index;
-                indices[it++] = index + 2;
-                indices[it++] = index + 3;
+            ID3D11Buffer *instance_buffer = nullptr;
+            {
+                D3D11_BUFFER_DESC desc = {};
+                desc.ByteWidth = batch.bytes;
+                desc.Usage = D3D11_USAGE_DYNAMIC;
+                desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+                desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+                D3D11_SUBRESOURCE_DATA res{};
+                res.pSysMem = batch.v;
+                HRESULT hr = r_d3d11_state->device->CreateBuffer(&desc, &res, &instance_buffer);
+                if (hr != S_OK) {
+                    printf("Failed to create instance buffer of '%d' bytes: %lu\n", batch.bytes, hr);
+                }
             }
-            ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(vertices, sizeof(R_2D_Vertex) * vertices_count);
-            ID3D11Buffer *index_buffer = d3d11_make_index_buffer(indices, sizeof(u32) * (UINT)indices_count);
 
             // IA
-            u32 stride = sizeof(R_2D_Vertex), offset = 0;
-            r_d3d11_state->device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            r_d3d11_state->device_context->IASetInputLayout(r_d3d11_state->input_layouts[D3D11_ShaderKind_Quad]);
-            r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
-            r_d3d11_state->device_context->IASetIndexBuffer(index_buffer, DXGI_FORMAT_R32_UINT, 0);
-            
-            r_d3d11_state->device_context->DrawIndexed((UINT)indices_count, 0, 0);
+            u32 stride = sizeof(R_2D_Rect), offset = 0;
+            r_d3d11_state->device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+            r_d3d11_state->device_context->IASetInputLayout(r_d3d11_state->input_layouts[D3D11_ShaderKind_UI]);
+            r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &instance_buffer, &stride, &offset);
 
-            if (vertex_buffer) vertex_buffer->Release();
-            if (index_buffer) index_buffer->Release();
+            r_d3d11_state->device_context->DrawInstanced(4, rect_count, 0, 0);
+
+            if (instance_buffer) instance_buffer->Release();
             break;
         }
         }
@@ -600,21 +653,21 @@ internal void d3d11_render_initialize(HWND window_handle) {
         r_d3d11_state->fallback_tex = d3d11_create_texture(R_Tex2DFormat_R8G8B8A8, {2, 2}, bitmap);
     }
 
-    D3D11_INPUT_ELEMENT_DESC ui_il[] = {
-        { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,       0, offsetof(R_2D_Vertex, dst),      D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, offsetof(R_2D_Vertex, src),      D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_2D_Vertex, color),    D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "STY",      0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_2D_Vertex, omit_tex), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    D3D11_INPUT_ELEMENT_DESC rect_ilay[] = {
+        { "POS", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_2D_Rect, dst),      D3D11_INPUT_PER_INSTANCE_DATA, 1 },
+        { "TEX", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_2D_Rect, src),      D3D11_INPUT_PER_INSTANCE_DATA, 1 },
+        { "COL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_2D_Rect, color),    D3D11_INPUT_PER_INSTANCE_DATA, 1 },
+        { "STY", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_2D_Rect, border_thickness), D3D11_INPUT_PER_INSTANCE_DATA, 1 },
     };
-    d3d11_make_shader(str8_lit("UI"), str8_cstring(r_d3d11_shader_ui), "vs_main", "ps_main", ui_il, ArrayCount(ui_il), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_UI], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_UI], &r_d3d11_state->input_layouts[D3D11_ShaderKind_UI]);
+    d3d11_make_shader(str8_lit("Rect"), str8_cstring(r_d3d11_g_shader_rect), "vs_main", "ps_main", rect_ilay, ArrayCount(rect_ilay), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_UI], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_UI], &r_d3d11_state->input_layouts[D3D11_ShaderKind_UI]);
     r_d3d11_state->uniform_buffers[D3D11_ShaderKind_UI] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_UI));
 
-    D3D11_INPUT_ELEMENT_DESC quad_il[] = {
+    D3D11_INPUT_ELEMENT_DESC quad_ilay[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,       0, offsetof(R_2D_Vertex, dst),      D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, offsetof(R_2D_Vertex, src),      D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_2D_Vertex, color),    D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "STY",      0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_2D_Vertex, omit_tex), D3D11_INPUT_PER_VERTEX_DATA, 0 },
     };
-    d3d11_make_shader(str8_lit("Quad"), str8_cstring(r_d3d11_shader_quad), "vs_main", "ps_main", quad_il, ArrayCount(quad_il), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Quad], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Quad], &r_d3d11_state->input_layouts[D3D11_ShaderKind_Quad]);
+    d3d11_make_shader(str8_lit("Quad"), str8_cstring(r_d3d11_g_shader_quad), "vs_main", "ps_main", quad_ilay, ArrayCount(quad_ilay), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Quad], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Quad], &r_d3d11_state->input_layouts[D3D11_ShaderKind_Quad]);
     r_d3d11_state->uniform_buffers[D3D11_ShaderKind_Quad] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Quad));
 }

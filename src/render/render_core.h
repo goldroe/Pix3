@@ -22,6 +22,15 @@ struct R_2D_Vertex {
     v3 padding_;
 };
 
+struct R_2D_Rect {
+    Rect dst;
+    Rect src;
+    v4 color;
+    f32 border_thickness;
+    f32 omit_tex;
+    f32 _unused[2];
+};
+
 enum R_Params_Kind {
     R_ParamsKind_Nil,
     R_ParamsKind_UI,

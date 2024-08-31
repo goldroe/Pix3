@@ -39,7 +39,7 @@ internal LRESULT CALLBACK win32_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM 
 
     case WM_SETCURSOR:
     {
-        // SetCursor(win32_hcursor);
+        SetCursor(win32_hcursor);
         break;
     }
 

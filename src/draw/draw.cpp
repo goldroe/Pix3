@@ -51,6 +51,12 @@ internal void draw_batch_push_vertex(R_Batch *batch, R_2D_Vertex src) {
     batch->bytes += sizeof(R_2D_Vertex);
  }
 
+internal void draw_batch_push_rect(R_Batch *batch, R_2D_Rect rect) {
+    R_2D_Rect *dst = push_array(draw_arena, R_2D_Rect, 1);
+    *dst = rect;
+    batch->bytes += sizeof(R_2D_Rect);
+}
+
 internal void draw_push_batch_node(R_Batch_List *list, R_Batch_Node *node) {
     SLLQueuePush(list->first, list->last, node);
     list->count += 1;
@@ -154,20 +160,8 @@ internal void draw_string(String8 string, Font *font, v4 color, v2 offset) {
         src.x1 = src.x0 + (g.bx / (f32)font->width);
         src.y1 = src.y0 + (g.by / (f32)font->height);
 
-        R_2D_Vertex tl = r_2d_vertex(dst.x0, dst.y0, src.x0, src.y0, color);
-        tl.omit_tex = 1.f;
-        R_2D_Vertex tr = r_2d_vertex(dst.x1, dst.y0, src.x1, src.y0, color);
-        tr.omit_tex = 1.f;
-        R_2D_Vertex bl = r_2d_vertex(dst.x0, dst.y1, src.x0, src.y1, color);
-        bl.omit_tex = 1.f;
-        R_2D_Vertex br = r_2d_vertex(dst.x1, dst.y1, src.x1, src.y1, color);
-        br.omit_tex = 1.f;
-
-        draw_batch_push_vertex(&node->batch, bl);
-        draw_batch_push_vertex(&node->batch, tl);
-        draw_batch_push_vertex(&node->batch, tr);
-        draw_batch_push_vertex(&node->batch, br);
-
+        R_2D_Rect rect = r_2d_rect(dst, src, color, 0.f, 0.f);
+        draw_batch_push_rect(&node->batch, rect);
         cursor.x += g.ax;
     }
 }
@@ -190,22 +184,11 @@ internal void draw_ui_img(R_Handle img, Rect dst, Rect src, v4 color) {
         node->batch.v = (u8 *)draw_arena->current + draw_arena->current->pos;
     }
 
-    R_2D_Vertex tl = r_2d_vertex(dst.x0, dst.y0, src.x0, src.y0, color);
-    tl.omit_tex = 0.f;
-    R_2D_Vertex tr = r_2d_vertex(dst.x1, dst.y0, src.x1, src.y0, color);
-    tr.omit_tex = 0.f;
-    R_2D_Vertex bl = r_2d_vertex(dst.x0, dst.y1, src.x0, src.y1, color);
-    bl.omit_tex = 0.f;
-    R_2D_Vertex br = r_2d_vertex(dst.x1, dst.y1, src.x1, src.y1, color);
-    br.omit_tex = 0.f;
-
-    draw_batch_push_vertex(&node->batch, bl);
-    draw_batch_push_vertex(&node->batch, tl);
-    draw_batch_push_vertex(&node->batch, tr);
-    draw_batch_push_vertex(&node->batch, br);
+    R_2D_Rect rect = r_2d_rect(dst, src, color, 0.f, 0.f);
+    draw_batch_push_rect(&node->batch, rect);
 }
 
-internal void draw_ui_rect(Rect dst, v4 color) {
+internal void draw_ui_rect(Rect dst, v4 color, f32 border_thickness) {
     R_Handle tex = draw_bucket->tex;
     R_Params_Kind params_kind = draw_bucket->params_kind;
     R_Batch_Node *node = draw_bucket->batches.last;
@@ -224,39 +207,29 @@ internal void draw_ui_rect(Rect dst, v4 color) {
     }
     Assert(node);
 
-    R_2D_Vertex tl = r_2d_vertex(dst.x0, dst.y0, 0.f, 0.f, color);
-    tl.omit_tex = 1.f;
-    R_2D_Vertex tr = r_2d_vertex(dst.x1, dst.y0, 0.f, 0.f, color);
-    tr.omit_tex = 1.f;
-    R_2D_Vertex bl = r_2d_vertex(dst.x0, dst.y1, 0.f, 0.f, color);
-    bl.omit_tex = 1.f;
-    R_2D_Vertex br = r_2d_vertex(dst.x1, dst.y1, 0.f, 0.f, color);
-    br.omit_tex = 1.f;
-
-    draw_batch_push_vertex(&node->batch, bl);
-    draw_batch_push_vertex(&node->batch, tl);
-    draw_batch_push_vertex(&node->batch, tr);
-    draw_batch_push_vertex(&node->batch, br);
+    Rect src = {};
+    R_2D_Rect rect = r_2d_rect(dst, src, color, border_thickness, 1.f);
+    draw_batch_push_rect(&node->batch, rect);
 }
 
 internal void draw_ui_rect_outline(Rect rect, v4 color) {
-    draw_ui_rect(make_rect(rect.x0, rect.y0, rect_width(rect), 1), color);
-    draw_ui_rect(make_rect(rect.x0, rect.y0, 1, rect_height(rect)), color);
-    draw_ui_rect(make_rect(rect.x1 - 1, rect.y0, 1, rect_height(rect)), color);
-    draw_ui_rect(make_rect(rect.x0, rect.y1 - 1, rect_width(rect), 1), color);
+    draw_ui_rect(make_rect(rect.x0, rect.y0, rect_width(rect), 1), color, 0.f);
+    draw_ui_rect(make_rect(rect.x0, rect.y0, 1, rect_height(rect)), color, 0.f);
+    draw_ui_rect(make_rect(rect.x1 - 1, rect.y0, 1, rect_height(rect)), color, 0.f);
+    draw_ui_rect(make_rect(rect.x0, rect.y1 - 1, rect_width(rect), 1), color, 0.f);
 }
 
 internal void draw_ui_box(UI_Box *box) {
     if (box->flags & UI_BoxFlag_DrawBackground) {
-        draw_ui_rect(box->rect, box->background_color);
+        draw_ui_rect(box->rect, box->background_color, box->border_thickness);
     }
     if (box->flags & UI_BoxFlag_DrawBorder) {
-        draw_ui_rect_outline(box->rect, box->border_color);
+        // draw_ui_rect_outline(box->rect, box->border_color);
     }
     if (box->flags & UI_BoxFlag_DrawHotEffects) {
         v4 hot_color = box->hover_color;
         hot_color.w *= box->hot_t;
-        draw_ui_rect(box->rect, hot_color);
+        draw_ui_rect(box->rect, hot_color, box->border_thickness);
     }
     // if (box->flags & UI_BoxFlag_DrawActiveEffects) {
     //     v4 active_color = V4(1.f, 1.f, 1.f, 1.f);

@@ -91,7 +91,8 @@ internal Font *load_font(Arena *arena, String8 font_name, int font_height) {
             for (int x = 0; x < glyph->bx; x++) {
                 u8 *dest = bitmap + (y * atlas_width + atlas_x + x) * pixel_size;
                 u8 *source = ft_face->glyph->bitmap.buffer + y * ft_face->glyph->bitmap.width + x;
-                memset(dest, *source, pixel_size);
+                dest[0] = dest[1] = dest[2] = 255;
+                dest[3] = *source;
             }
         }
 

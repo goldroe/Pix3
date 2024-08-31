@@ -84,7 +84,9 @@ struct UI_Box {
     v4 text_color = V4();
     v4 border_color = V4();
     v4 hover_color = V4();
+    f32 border_thickness;
     String8 string = str8_zero();
+
     UI_Box_Draw_Proc *custom_draw_proc;
     void *draw_data;
     OS_Cursor hover_cursor;
@@ -116,6 +118,7 @@ struct UI_BackgroundColor_Node         { UI_BackgroundColor_Node *next; v4 v; };
 struct UI_BorderColor_Node             { UI_BorderColor_Node     *next; v4 v; };
 struct UI_TextColor_Node               { UI_TextColor_Node       *next; v4 v; };
 struct UI_HoverColor_Node              { UI_HoverColor_Node      *next; v4 v; };
+struct UI_BorderThickness_Node         { UI_BorderThickness_Node *next; f32 v; };
 struct UI_Cursor_Node                  { UI_Cursor_Node          *next; OS_Cursor v; };
 struct UI_BoxFlags_Node                { UI_BoxFlags_Node        *next; UI_Box_Flags v; };
 
@@ -135,6 +138,7 @@ struct UI_BoxFlags_Node                { UI_BoxFlags_Node        *next; UI_Box_F
     struct { UI_BorderColor_Node     *top; UI_BorderColor_Node     *first_free; b32 auto_pop; } border_color_stack; \
     struct { UI_TextColor_Node       *top; UI_TextColor_Node       *first_free; b32 auto_pop; } text_color_stack; \
     struct { UI_HoverColor_Node      *top; UI_HoverColor_Node      *first_free; b32 auto_pop; } hover_color_stack; \
+    struct { UI_BorderThickness_Node *top; UI_BorderThickness_Node *first_free; b32 auto_pop; } border_thickness_stack; \
     struct { UI_Cursor_Node          *top; UI_Cursor_Node          *first_free; b32 auto_pop; } hover_cursor_stack; \
     struct { UI_BoxFlags_Node        *top; UI_BoxFlags_Node        *first_free; b32 auto_pop; } box_flags_stack; \
 }
@@ -277,6 +281,7 @@ internal void ui_set_next_background_color(v4 v);
 internal void ui_set_next_border_color(v4 v);
 internal void ui_set_next_text_color(v4 v);
 internal void ui_set_next_hover_color(v4 v);
+internal void ui_set_next_border_thickness(f32 v);
 internal void ui_set_next_hover_cursor(OS_Cursor v);
 internal void ui_set_next_box_flags(UI_Box_Flags v);
 
@@ -295,6 +300,7 @@ internal void ui_push_background_color(v4 v);
 internal void ui_push_border_color(v4 v);
 internal void ui_push_text_color(v4 v);
 internal void ui_push_hover_color(v4 v);
+internal void ui_push_border_thickness(f32 v);
 internal void ui_push_hover_cursor(OS_Cursor v);
 internal void ui_push_box_flags(UI_Box_Flags v);
 
@@ -313,6 +319,7 @@ internal v4 ui_pop_background_color();
 internal v4 ui_pop_border_color();
 internal v4 ui_pop_text_color();
 internal v4 ui_pop_hover_color();
+internal f32 ui_pop_border_thickness();
 internal OS_Cursor ui_pop_hover_cursor();
 internal UI_Box_Flags ui_pop_box_flags();
 

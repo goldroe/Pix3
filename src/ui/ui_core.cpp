@@ -232,6 +232,10 @@ internal UI_Box *ui_make_box_from_key(UI_Box_Flags flags, UI_Key key) {
         box->pref_size[Axis_Y] = ui_state->pref_height_stack.top->v;
     }
 
+    if (ui_state->border_thickness_stack.top) {
+        box->border_thickness = ui_state->border_thickness_stack.top->v;
+    }
+
     box->font = ui_state->font_stack.top->v;
     box->text_alignment = ui_state->text_alignment_stack.top->v;
     box->child_layout_axis = ui_state->child_layout_axis_stack.top->v;
@@ -273,6 +277,7 @@ internal UI_Box *ui_make_box_from_key(UI_Box_Flags flags, UI_Key key) {
         if (ui_state->border_color_stack.auto_pop) { ui_pop_border_color(); }
         if (ui_state->text_color_stack.auto_pop) { ui_pop_text_color(); }
         if (ui_state->hover_color_stack.auto_pop) { ui_pop_hover_color(); }
+        if (ui_state->border_thickness_stack.auto_pop) { ui_pop_border_thickness(); }
         if (ui_state->hover_cursor_stack.auto_pop) { ui_pop_hover_cursor(); }
         if (ui_state->box_flags_stack.auto_pop) { ui_pop_box_flags(); }
     }
@@ -714,6 +719,7 @@ internal void ui_begin_build(f32 animation_dt, OS_Handle window_handle, OS_Event
     ui_state->text_color_stack.top = NULL; ui_state->text_color_stack.first_free = NULL; ui_state->text_color_stack.auto_pop = false;
     ui_state->hover_color_stack.top = NULL; ui_state->hover_color_stack.first_free = NULL; ui_state->hover_color_stack.auto_pop = false;
     ui_state->hover_cursor_stack.top = NULL; ui_state->hover_cursor_stack.first_free = NULL; ui_state->hover_cursor_stack.auto_pop = false;
+    ui_state->border_thickness_stack.top = NULL; ui_state->border_thickness_stack.first_free = NULL; ui_state->border_thickness_stack.auto_pop = false;
 
     ui_push_font(default_fonts[FONT_DEFAULT]);
     ui_push_text_alignment(UI_TextAlign_Center);
@@ -722,6 +728,7 @@ internal void ui_begin_build(f32 animation_dt, OS_Handle window_handle, OS_Event
     ui_push_text_color(V4(.92f, .86f, .7f, 1.f));
     ui_push_border_color(V4(.31f, .29f, .27f, 1.f));
     ui_push_hover_color(V4(1.f, 1.f, 1.f, .3f));
+    ui_push_border_thickness(0.f);
     ui_push_hover_cursor(OS_Cursor_Arrow);
     ui_push_pref_width(ui_px(100.f, 1.f));
     ui_push_pref_height(ui_px(20.f, 1.f));
@@ -799,6 +806,7 @@ internal void ui_set_next_background_color(v4 v) { UI_StackSetNext(ui_state, Bac
 internal void ui_set_next_border_color(v4 v) { UI_StackSetNext(ui_state, BorderColor, border_color, v4, v); }
 internal void ui_set_next_text_color(v4 v) { UI_StackSetNext(ui_state, TextColor, text_color, v4, v); }
 internal void ui_set_next_hover_color(v4 v) { UI_StackSetNext(ui_state, HoverColor, hover_color, v4, v); }
+internal void ui_set_next_border_thickness(f32 v) { UI_StackSetNext(ui_state, BorderThickness, border_thickness, f32, v); }
 internal void ui_set_next_hover_cursor(OS_Cursor v) { UI_StackSetNext(ui_state, Cursor, hover_cursor, OS_Cursor, v); }
 internal void ui_set_next_box_flags(UI_Box_Flags v) { UI_StackSetNext(ui_state, BoxFlags, box_flags, UI_Box_Flags, v); }
 
@@ -817,6 +825,7 @@ internal void ui_push_background_color(v4 v) { UI_StackPush(ui_state, Background
 internal void ui_push_border_color(v4 v) { UI_StackPush(ui_state, BorderColor, border_color, v4, v); }
 internal void ui_push_text_color(v4 v) { UI_StackPush(ui_state, TextColor, text_color, v4, v); }
 internal void ui_push_hover_color(v4 v) { UI_StackPush(ui_state, HoverColor, hover_color, v4, v); }
+internal void ui_push_border_thickness(f32 v) { UI_StackPush(ui_state, BorderThickness, border_thickness, f32, v); }
 internal void ui_push_hover_cursor(OS_Cursor v) { UI_StackPush(ui_state, Cursor, hover_cursor, OS_Cursor, v); }
 internal void ui_push_box_flags(UI_Box_Flags v) { UI_StackPush(ui_state, BoxFlags, box_flags, UI_Box_Flags, v); }
 
@@ -835,5 +844,6 @@ internal v4 ui_pop_background_color() { UI_StackPop(ui_state, BackgroundColor, b
 internal v4 ui_pop_border_color() { UI_StackPop(ui_state, BorderColor, border_color); }
 internal v4 ui_pop_text_color() { UI_StackPop(ui_state, TextColor, text_color); }
 internal v4 ui_pop_hover_color() { UI_StackPop(ui_state, HoverColor, hover_color); }
+internal f32 ui_pop_border_thickness() { UI_StackPop(ui_state, BorderThickness, border_thickness); }
 internal OS_Cursor ui_pop_hover_cursor() { UI_StackPop(ui_state, Cursor, hover_cursor); }
 internal UI_Box_Flags ui_pop_box_flags() { UI_StackPop(ui_state, BoxFlags, box_flags); }

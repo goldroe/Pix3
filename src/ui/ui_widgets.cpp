@@ -46,8 +46,8 @@ internal UI_BOX_CUSTOM_DRAW_PROC(ui_draw_img) {
     }
     Rect dst = make_rect(box->rect.x0, box->rect.y0, adjusted.x, adjusted.y);
     shift_rect(&dst, (box_dim.x - adjusted.x)/2.f, (box_dim.y - adjusted.y)/2.f);
-    draw_ui_rect(box->rect, V4(0.2f, 0.2f, 0.2f, 1.f));
-    draw_ui_img(draw_data->tex, dst, draw_data->src, V4(1.f, 0.f, 0.f, 1.f));
+    draw_ui_rect(box->rect, V4(0.2f, 0.2f, 0.2f, 1.f), box->border_thickness);
+    draw_ui_img(draw_data->tex, dst, draw_data->src, V4(1.f, 1.f, 1.f, 1.f));
 }
 
 internal UI_Signal ui_image(R_Handle img, String8 string) {
@@ -89,7 +89,7 @@ internal UI_BOX_CUSTOM_DRAW_PROC(ui_draw_line_edit) {
     v2 c_pos = text_position + measure_string_size(string_before_cursor, box->font);
     Rect c_rect = make_rect(c_pos.x, c_pos.y, 2.f, box->font->glyph_height);
     if (ui_key_match(box->key, ui_state->focus_active_box_key)) {
-        draw_ui_rect(c_rect, box->text_color);
+        draw_ui_rect(c_rect, box->text_color, 1.f);
     }
 }
 
@@ -202,6 +202,7 @@ internal UI_Scroll_Pt ui_scroll_bar(String8 name, Axis2 axis, UI_Size flip_axis_
         ui_set_next_pref_size(axis, ui_pct(1.f, 0.f));
         ui_set_next_background_color(V4(.24f, .25f, .25f, 1.f));
         ui_set_next_hover_cursor(OS_Cursor_Hand);
+        ui_set_next_border_thickness(8.f);
         UI_Box *thumb_container = ui_make_box_from_stringf(UI_BoxFlag_Clickable | UI_BoxFlag_DrawBackground, "###thumb_container", name.data);
         v2 thumb_container_dim = rect_dim(thumb_container->rect);
             
@@ -219,6 +220,7 @@ internal UI_Scroll_Pt ui_scroll_bar(String8 name, Axis2 axis, UI_Size flip_axis_
         ui_set_next_pref_size(axis, ui_pct(scroll_ratio, 0.f));
         ui_set_next_background_color(V4(.4f, .4f, .4f, 1.f));
         ui_set_next_hover_cursor(OS_Cursor_Hand);
+        ui_set_next_border_thickness(8.f);
         UI_Box *thumb_box = ui_make_box_from_stringf(UI_BoxFlag_Clickable | UI_BoxFlag_DrawBackground | UI_BoxFlag_DrawHotEffects | UI_BoxFlag_DrawActiveEffects, "###thumb", name.data);
         UI_Signal thumb_sig = ui_signal_from_box(thumb_box);
         if (ui_dragging(thumb_sig)) {

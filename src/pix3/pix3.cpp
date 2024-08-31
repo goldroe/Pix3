@@ -252,7 +252,7 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
     UI_PrefWidth(ui_text_dim(4.f, 1.f))
         UI_PrefHeight(ui_text_dim(0.f, 1.f))
     {
-        ui_labelf("mouse:%f %f", ui_mouse().x, ui_mouse().y);
+        // ui_labelf("mouse:%f %f", ui_mouse().x, ui_mouse().y);
         // ui_labelf("hot:%llu", ui_state->hot_box_key);
         // ui_labelf("active:%llu", ui_state->active_box_key);
         // ui_labelf("focus_active:%llu", ui_state->focus_active_box_key);
@@ -311,6 +311,7 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
                 ui_set_next_fixed_width(img_dim.x);
                 ui_set_next_fixed_height(img_dim.y);
                 ui_set_next_box_flags(UI_BoxFlag_Clickable);
+                ui_set_next_border_thickness(14.f);
                 UI_Signal img_sig = ui_imagef(asset->textures[0], "###img_%d", file_idx);
                 if (ui_clicked(img_sig)) {
                     g_app_state->current_asset = asset;
@@ -322,7 +323,7 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         if (g_app_state->assets.count * img_dim.x > client_dim.x) {
             ui_spacer(Axis_Y, ui_px(4.f, 1.f));
             ui_set_next_pref_width(ui_pct(1.f, 1.f));
-            g_app_state->film_strip_scroll_pt = ui_scroll_bar(str8_lit("###bar"), Axis_X, ui_px(8.f, 1.f), g_app_state->film_strip_scroll_pt, rng_s64(0, (s64)(rect_width(film_strip_container->rect) / img_dim.x)), g_app_state->assets.count);
+            g_app_state->film_strip_scroll_pt = ui_scroll_bar(str8_lit("###bar"), Axis_X, ui_px(10.f, 1.f), g_app_state->film_strip_scroll_pt, rng_s64(0, (s64)(rect_width(film_strip_container->rect) / img_dim.x)), g_app_state->assets.count);
         }
     }
 

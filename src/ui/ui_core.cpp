@@ -1,5 +1,24 @@
 global UI_State *ui_state;
 
+global char *ui_g_icon_kind_strings[UI_IconKind_COUNT] = {
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+};
+internal String8 ui_string_from_icon_kind(UI_Icon_Kind kind, const char *end) {
+    char *icon_string = ui_g_icon_kind_strings[kind];
+    String8 result = str8_pushf(ui_build_arena(), "%s%s", icon_string, end);
+    return result;
+}
+
 internal UI_Box *ui_root() {
     return ui_state->root;
 }

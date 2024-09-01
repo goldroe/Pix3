@@ -327,6 +327,8 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         }
     }
 
+    ui_spacer(Axis_Y, ui_px(8.f, 1.f));
+
     //@Note Bottom bar
     ui_set_next_pref_width(ui_pct(1.f, 1.f));
     ui_set_next_pref_height(ui_text_dim(0.f, 1.f));
@@ -340,7 +342,9 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
             size = r_texture_size(asset->textures[0]);
         }
 
-        if (ui_clicked(ui_button(str8_lit("Film")))) {
+        ui_set_next_font(default_fonts[FONT_ICON]);
+        String8 film_string = ui_string_from_icon_kind(UI_IconKind_Images, "###film");
+        if (ui_clicked(ui_button(film_string))) {
             g_app_state->film_strip_active = !g_app_state->film_strip_active;
             for (Asset *asset = g_app_state->assets.first; asset; asset = asset->next) {
                 if (!asset->textures) {
@@ -355,10 +359,14 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
 
         f32 h_r = client_dim.x / (f32)size.x;
         f32 v_r = client_dim.y / (f32)size.y;
-        if (ui_clicked(ui_button(str8_lit("+###zoom_in")))) {
+        String8 zoom_in_string = ui_string_from_icon_kind(UI_IconKind_ZoomPlus, "###zoom_in");
+        String8 zoom_out_string = ui_string_from_icon_kind(UI_IconKind_ZoomMinus, "###zoom_out");
+        ui_set_next_font(default_fonts[FONT_ICON]);
+        if (ui_clicked(ui_button(zoom_in_string))) {
             g_app_state->camera.zoom += .1f;
         }
-        if (ui_clicked(ui_button(str8_lit("-###zoom_out")))) {
+        ui_set_next_font(default_fonts[FONT_ICON]);
+        if (ui_clicked(ui_button(zoom_out_string))) {
             g_app_state->camera.zoom -= .1f;
         }
 
@@ -381,7 +389,9 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
             ui_set_next_fixed_y(client_dim.y / 2.f);
             ui_set_next_pref_width(ui_text_dim(1.f, 1.f));
             ui_set_next_pref_height(ui_text_dim(1.f, 1.f));
-            UI_Signal sig = ui_button(str8_lit("<###left_arrow"));
+            ui_set_next_font(default_fonts[FONT_ICON]);
+            String8 left_arrow_string = ui_string_from_icon_kind(UI_IconKind_ArrowLeft, "###left_arrow");
+            UI_Signal sig = ui_button(left_arrow_string);
             if (ui_clicked(sig)) {
                 current_asset = current_asset->prev;
                 if (!current_asset->textures) {
@@ -396,7 +406,9 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
             ui_set_next_fixed_y(client_dim.y / 2.f);
             ui_set_next_pref_width(ui_text_dim(1.f, 1.f));
             ui_set_next_pref_height(ui_text_dim(1.f, 1.f));
-            UI_Signal sig = ui_button(str8_lit(">###right_arrow"));
+            ui_set_next_font(default_fonts[FONT_ICON]);
+            String8 right_arrow_string = ui_string_from_icon_kind(UI_IconKind_ArrowRight, "###right_arrow");
+            UI_Signal sig = ui_button(right_arrow_string);
             if (ui_clicked(sig)) {
                 current_asset = current_asset->next;
                 if (!current_asset->textures) {

@@ -194,7 +194,9 @@ internal UI_Scroll_Pt ui_scroll_bar(String8 name, Axis2 axis, UI_Size flip_axis_
     UI_Parent(container)
         UI_PrefSize(flip_axis, ui_pct(1.f, 0.f)) {
         ui_set_next_pref_size(axis, ui_text_dim(0.f, 1.f));
-        UI_Signal top_sig = ui_button(str8_lit("<###top_arrow"));
+        ui_set_next_font(default_fonts[FONT_ICON]);
+        String8 tl_arrow_string = ui_string_from_icon_kind(axis==Axis_X ? UI_IconKind_ArrowLeft : UI_IconKind_ArrowUp, "###tl_arrow");
+        UI_Signal top_sig = ui_button(tl_arrow_string);
         if (ui_clicked(top_sig) || ui_dragging(top_sig)) {
             new_pt.idx -= 1;
         }
@@ -229,7 +231,9 @@ internal UI_Scroll_Pt ui_scroll_bar(String8 name, Axis2 axis, UI_Size flip_axis_
         }
 
         ui_set_next_pref_size(axis, ui_text_dim(0.f, 1.f));
-        UI_Signal bottom_sig = ui_button(str8_lit(">###bottom_arrow"));
+        String8 br_arrow_string = ui_string_from_icon_kind(axis==Axis_X ? UI_IconKind_ArrowRight : UI_IconKind_ArrowDown, "###br_arrow");
+        ui_set_next_font(default_fonts[FONT_ICON]);
+        UI_Signal bottom_sig = ui_button(br_arrow_string);
         if (ui_clicked(bottom_sig) || ui_dragging(bottom_sig)) {
             new_pt.idx += 1;
         }

@@ -27,6 +27,7 @@ struct Font {
 
 enum Font_Type {
     FONT_DEFAULT,
+    FONT_ICON,
     FONT_CODE,
     FONT_COUNT,
 };

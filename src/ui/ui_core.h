@@ -256,6 +256,21 @@ struct UI_Signal {
     v2_s32 scroll;
 };
 
+enum UI_Icon_Kind {
+    UI_IconKind_Folder,
+    UI_IconKind_File,
+    UI_IconKind_Image,
+    UI_IconKind_Images,
+    UI_IconKind_ArrowUp,
+    UI_IconKind_ArrowDown,
+    UI_IconKind_ArrowLeft,
+    UI_IconKind_ArrowRight,
+    UI_IconKind_WindowClose,
+    UI_IconKind_ZoomPlus,
+    UI_IconKind_ZoomMinus,
+    UI_IconKind_COUNT
+};
+
 internal v2 ui_drag_delta();
 
 #define ui_clicked(sig)      ((sig).flags & UI_SignalFlag_Clicked)

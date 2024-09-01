@@ -79,8 +79,10 @@ int main(int argc, char **argv) {
     String8 font_path = str8_concat(font_arena, exe_path, str8_lit("data/fonts/SegUI.ttf"));
     default_fonts[FONT_DEFAULT] = load_font(font_arena, font_path, 16);
 
-    // font_path = str8_concat(font_arena, exe_path, str8_lit("data/fonts/" FONT_ICON_FILE_NAME_FAR));
-    // default_fonts[FONT_ICON] = load_font_range(font_arena, font_path, 16, icons_range);
+    u32 icon_font_glyphs[] = { 0xf07b, 0xf15b, 0xf1c5, 0xf302, 0xf062, 0xf063, 0xf191, 0xf152, 0xf410, 0xf0fe, 0xf146 };
+    String8 icon_font_path = str8_concat(font_arena, exe_path, str8_lit("data/fonts/" FONT_ICON_FILE_NAME_FAR));
+    default_fonts[FONT_ICON] = load_icon_font(font_arena, icon_font_path, 18, icon_font_glyphs, ArrayCount(icon_font_glyphs));
+
     ui_set_state(ui_state_new());
 
     {

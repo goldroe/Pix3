@@ -246,6 +246,18 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         if (ui_clicked(sampler_sig)) {
             g_app_state->point_sample = !g_app_state->point_sample;
         }
+
+        // UI_Signal rotate_sig = ui_button(str8_lit("Rotate"));
+        // if (ui_clicked(rotate_sig)) {
+        //     // g_app_state->rot += 90.f;
+        //     // if (g_app_state->rot >= 360.f) g_app_state->rot = 0.f;
+        // }
+
+        String8 trash_icon_string = ui_string_from_icon_kind(UI_IconKind_Trash, "###trash");
+        ui_set_next_font(default_fonts[FONT_ICON]);
+        UI_Signal trash_sig = ui_button(trash_icon_string);
+        if (ui_clicked(trash_sig)) {
+        }
     }
 
     //@Note Debug information
@@ -465,13 +477,20 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
                 OS_File file = fs_state->cached_files[file_idx];
                 ui_set_next_pref_width(ui_pct(1.f, 1.f));
                 ui_set_next_pref_height(ui_text_dim(2.f, 1.f));
+                ui_set_next_child_layout_axis(Axis_X);
                 UI_Signal file_sig = ui_buttonf("###%d_file", file_idx);
                 UI_Parent(file_sig.box) {
                     ui_set_next_pref_width(ui_text_dim(4.f, 1.f));
                     ui_set_next_pref_height(ui_text_dim(4.f, 1.f));
                     ui_set_next_text_alignment(UI_TextAlign_Left);
+                    ui_set_next_font(default_fonts[FONT_ICON]);
+                    String8 file_icon_string = ui_string_from_icon_kind(file.flags & OS_FileFlag_Directory ? UI_IconKind_Folder : UI_IconKind_File, "###file_icon");
+                    ui_label(file_icon_string);
+
+                    ui_set_next_pref_width(ui_text_dim(4.f, 1.f));
+                    ui_set_next_pref_height(ui_text_dim(4.f, 1.f));
+                    ui_set_next_text_alignment(UI_TextAlign_Left);
                     ui_labelf("%s", file.file_name.data);
-                    // UI_Box *box = ui_make_box_from_stringf(UI_BoxFlag_DrawText, "%s", file.file_name.data);
                 }
 
                 if (ui_clicked(file_sig)) {
@@ -549,7 +568,7 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         draw_set_xform(xform);
         draw_set_sampler(g_app_state->point_sample ? R_SamplerKind_Point : R_SamplerKind_Linear);
     
-        draw_quad_pro(tex, make_rect(0.f, 0.f, 1.f, 1.f), make_rect(-0.5f, -0.5f, 1.f, 1.f), V2(0.5f, 0.5f), 0, V4(1.f, 1.f, 1.f, 1.f));
+        draw_quad_pro(tex, make_rect(0.f, 0.f, 1.f, 1.f), make_rect(-0.5f, -0.5f, 1.f, 1.f), V2(0.5f, 0.5f), g_app_state->rot, V4(1.f, 1.f, 1.f, 1.f));
     }
 
     ui_layout_apply(ui_root());

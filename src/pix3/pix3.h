@@ -65,6 +65,7 @@ struct App_State {
 
     Camera_2D camera;
     b32 point_sample;
+    f32 rot;
 };
 
 #endif // PIX3_H

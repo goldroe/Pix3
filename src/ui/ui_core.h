@@ -268,6 +268,7 @@ enum UI_Icon_Kind {
     UI_IconKind_WindowClose,
     UI_IconKind_ZoomPlus,
     UI_IconKind_ZoomMinus,
+    UI_IconKind_Trash,
     UI_IconKind_COUNT
 };
 

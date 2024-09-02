@@ -12,6 +12,7 @@ global char *ui_g_icon_kind_strings[UI_IconKind_COUNT] = {
     "I",
     "J",
     "K",
+    "L",
 };
 internal String8 ui_string_from_icon_kind(UI_Icon_Kind kind, const char *end) {
     char *icon_string = ui_g_icon_kind_strings[kind];

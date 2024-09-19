@@ -195,7 +195,7 @@ internal UI_Scroll_Pt ui_scroll_bar(String8 name, Axis2 axis, UI_Size flip_axis_
         UI_PrefSize(flip_axis, ui_pct(1.f, 0.f)) {
         ui_set_next_pref_size(axis, ui_text_dim(0.f, 1.f));
         ui_set_next_font(default_fonts[FONT_ICON]);
-        String8 tl_arrow_string = ui_string_from_icon_kind(axis==Axis_X ? UI_IconKind_ArrowLeft : UI_IconKind_ArrowUp, "###tl_arrow");
+        String8 tl_arrow_string = ui_string_from_icon_kind(axis==Axis_X ? UI_IconKind_DirLeft : UI_IconKind_DirUp, "###tl_arrow");
         UI_Signal top_sig = ui_button(tl_arrow_string);
         if (ui_clicked(top_sig) || ui_dragging(top_sig)) {
             new_pt.idx -= 1;
@@ -231,7 +231,7 @@ internal UI_Scroll_Pt ui_scroll_bar(String8 name, Axis2 axis, UI_Size flip_axis_
         }
 
         ui_set_next_pref_size(axis, ui_text_dim(0.f, 1.f));
-        String8 br_arrow_string = ui_string_from_icon_kind(axis==Axis_X ? UI_IconKind_ArrowRight : UI_IconKind_ArrowDown, "###br_arrow");
+        String8 br_arrow_string = ui_string_from_icon_kind(axis==Axis_X ? UI_IconKind_DirRight : UI_IconKind_DirDown, "###br_arrow");
         ui_set_next_font(default_fonts[FONT_ICON]);
         UI_Signal bottom_sig = ui_button(br_arrow_string);
         if (ui_clicked(bottom_sig) || ui_dragging(bottom_sig)) {
@@ -334,9 +334,9 @@ internal void ui_column_begin() {
     ui_push_parent(column);
 }
 
-internal UI_Box *ui_row_begin() {
+internal UI_Box *ui_named_row_begin(String8 string) {
     ui_set_next_child_layout_axis(Axis_X);
-    UI_Box *row = ui_make_box_from_key(UI_BoxFlag_DrawBackground, 0);
+    UI_Box *row = ui_make_box_from_string(UI_BoxFlag_DrawBackground, string);
     ui_push_parent(row);
     return row;
 }
@@ -345,4 +345,11 @@ internal UI_Signal ui_row_end() {
     UI_Box *box = ui_pop_parent();
     UI_Signal signal = ui_signal_from_box(box);
     return signal;
+}
+
+internal UI_Box *ui_row_begin() {
+    ui_set_next_child_layout_axis(Axis_X);
+    UI_Box *row = ui_make_box_from_key(UI_BoxFlag_DrawBackground, 0);
+    ui_push_parent(row);
+    return row;
 }

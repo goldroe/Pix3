@@ -3,6 +3,50 @@ global Arena *win32_event_arena;
 global OS_Event_List win32_events;
 global bool win32_resizing;
 
+internal void os_window_minimize(OS_Handle window_handle) {
+    ShowWindow((HWND)window_handle, SW_MINIMIZE);
+}
+
+internal void os_window_maximize(OS_Handle window_handle) {
+    if (IsZoomed((HWND)window_handle)) {
+        ShowWindow((HWND)window_handle, SW_RESTORE);
+    } else {
+        ShowWindow((HWND)window_handle, SW_MAXIMIZE);
+    }
+}
+
+internal v2 os_mouse_from_window(OS_Handle window_handle) {
+    POINT pt;
+    GetCursorPos(&pt);
+    ScreenToClient((HWND)window_handle, &pt);
+    v2 result;
+    result.x = (f32)pt.x;
+    result.y = (f32)pt.y;
+    return result;
+}
+
+internal v2 os_get_window_dim(OS_Handle window_handle) {
+    v2 result{};
+    RECT rect;
+    int width = 0, height = 0;
+    if (GetClientRect((HWND)window_handle, &rect)) {
+        result.x = (f32)(rect.right - rect.left);
+        result.y = (f32)(rect.bottom - rect.top);
+    }
+    return result;
+}
+
+internal Rect os_client_rect_from_window(OS_Handle window_handle) {
+    RECT client_rect;
+    GetClientRect((HWND)window_handle, &client_rect);
+    Rect result;
+    result.x0 = (f32)client_rect.left;
+    result.x1 = (f32)client_rect.right;
+    result.y0 = (f32)client_rect.top;
+    result.y1 = (f32)client_rect.bottom;
+    return result;
+}
+
 internal OS_Event *win32_push_event(OS_Event_Kind kind) {
     OS_Event *result = push_array(win32_event_arena, OS_Event, 1);
     result->kind = kind;
@@ -14,8 +58,10 @@ internal OS_Event *win32_push_event(OS_Event_Kind kind) {
 }
 
 internal LRESULT CALLBACK win32_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
+    OS_Handle window_handle = (OS_Handle)hWnd;
     OS_Event *event = nullptr;
     bool release = false;
+    int border_thickness = 4;
 
     LRESULT result = 0;
     switch (Msg) {
@@ -24,6 +70,17 @@ internal LRESULT CALLBACK win32_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM 
         event = win32_push_event(OS_EventKind_Scroll);
         int delta = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
         event->delta.y = delta;
+        break;
+    }
+
+    case WM_ENTERSIZEMOVE:
+    {
+        win32_resizing = true;
+        break;
+    }
+    case WM_EXITSIZEMOVE:
+    {
+        win32_resizing = false;
         break;
     }
 
@@ -39,7 +96,16 @@ internal LRESULT CALLBACK win32_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM 
 
     case WM_SETCURSOR:
     {
-        SetCursor(win32_hcursor);
+        Rect window_rect = os_client_rect_from_window(window_handle);
+        v2 mouse = os_mouse_from_window(window_handle);
+        bool over_border_x = mouse.x <= border_thickness || mouse.x >= window_rect.x1 - border_thickness;
+        bool over_border_y = mouse.y <= border_thickness || mouse.y >= window_rect.y1 - border_thickness;
+        bool over_border = over_border_x || over_border_y;
+        if (!over_border && !win32_resizing && rect_contains(window_rect, mouse)) {
+            SetCursor(win32_hcursor);
+        } else {
+            result = DefWindowProcA(hWnd, Msg, wParam, lParam);
+        }
         break;
     }
 
@@ -102,10 +168,15 @@ internal LRESULT CALLBACK win32_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM 
     case WM_KEYDOWN:
     {
         u8 down = ((lParam >> 31) == 0);
+        u8 alt_mod = (lParam & (1 << 29)) != 0;
         u32 virtual_keycode = (u32)wParam;
         if (virtual_keycode < 256) {
             event = win32_push_event(release ? OS_EventKind_Release : OS_EventKind_Press);
             event->key = os_key_from_vk(virtual_keycode);
+        }
+
+        if (wParam == VK_F4 && alt_mod) {
+            PostQuitMessage(0);
         }
         break;
     }
@@ -131,22 +202,73 @@ internal LRESULT CALLBACK win32_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM 
         break;
     }
 
-    // case WM_SIZING:
-    // {
-    //     win32_resizing = true;
-    //     break;
-    // }
-    // case WM_ENTERSIZEMOVE:
-    // {
-    //     win32_resizing = true;
-    //     break;
-    // }
-    // case WM_EXITSIZEMOVE:
-    // {
-    //     win32_resizing = false;
-    //     break;
-    // }
-    
+    case WM_NCHITTEST:
+    {
+        bool hit_left = false, hit_right = false, hit_top = false, hit_bottom = false;
+
+        RECT window_rect;
+        GetWindowRect(hWnd, &window_rect);
+
+        POINT pos;
+        pos.x = GET_X_LPARAM(lParam);
+        pos.y = GET_Y_LPARAM(lParam);
+        POINT client_pos = pos;
+        ScreenToClient(hWnd, &client_pos);
+
+        bool over_window = (window_rect.left <= pos.x && pos.x < window_rect.right && window_rect.top <= pos.y && pos.y < window_rect.bottom);
+        bool over_title_bar = over_window && client_pos.y < g_custom_title_bar_thickness;
+
+        RECT rect;
+        GetClientRect(hWnd, &rect);
+
+        if (rect.left <= client_pos.x && client_pos.x < rect.left + border_thickness) {
+            hit_left = true;
+        }
+        if (rect.right - border_thickness <= client_pos.x && client_pos.x < rect.right) {
+            hit_right = true; 
+        }
+        if (rect.top <= client_pos.y && client_pos.y < rect.top + border_thickness) {
+            hit_top = true; 
+        }
+        if (rect.bottom - border_thickness <= client_pos.y && client_pos.y < rect.bottom) {
+            hit_bottom = true;
+        }
+
+        result = HTNOWHERE;
+        if (over_window) {
+            result = HTCLIENT;
+
+            if (over_title_bar) {
+                result = HTCAPTION;
+            }
+
+            if (hit_left) result = HTLEFT;
+            if (hit_right) result = HTRIGHT;
+            if (hit_top) result = HTTOP;
+            if (hit_bottom) result = HTBOTTOM;
+
+            if (hit_left && hit_top) {
+                result = HTTOPLEFT;
+            }
+            if (hit_right && hit_top) {
+                result = HTTOPRIGHT;
+            }
+            if (hit_left && hit_bottom) {
+                result = HTBOTTOMLEFT;
+            }
+            if (hit_right && hit_bottom) {
+                result = HTBOTTOMRIGHT;
+            }
+
+            for (OS_Area_Node *area = g_custom_title_bar_client_area_node; area != nullptr; area = area->next) {
+                if (area->rect.x0 <= client_pos.x && client_pos.x < area->rect.x1 && area->rect.y0 <= client_pos.y && client_pos.y < area->rect.y1) {
+                    result = HTCLIENT;
+                }
+            }
+        }
+        break;
+    }
+
     case WM_CREATE:
     {
         break;
@@ -214,38 +336,6 @@ internal void os_set_cursor(OS_Cursor cursor) {
         PostMessageA(0, WM_SETCURSOR, 0, 0);
         win32_hcursor = hcursor;
     }
-}
-
-internal Rect os_client_rect_from_window(OS_Handle window_handle) {
-    RECT client_rect;
-    GetClientRect((HWND)window_handle, &client_rect);
-    Rect result;
-    result.x0 = (f32)client_rect.left;
-    result.x1 = (f32)client_rect.right;
-    result.y0 = (f32)client_rect.top;
-    result.y1 = (f32)client_rect.bottom;
-    return result;
-}
-
-internal v2 os_get_window_dim(OS_Handle window_handle) {
-    v2 result{};
-    RECT rect;
-    int width = 0, height = 0;
-    if (GetClientRect((HWND)window_handle, &rect)) {
-        result.x = (f32)(rect.right - rect.left);
-        result.y = (f32)(rect.bottom - rect.top);
-    }
-    return result;
-}
-
-internal v2 os_mouse_from_window(OS_Handle window_handle) {
-    POINT pt;
-    GetCursorPos(&pt);
-    ScreenToClient((HWND)window_handle, &pt);
-    v2 result;
-    result.x = (f32)pt.x;
-    result.y = (f32)pt.y;
-    return result;
 }
 
 internal bool os_window_is_focused(OS_Handle window_handle) {

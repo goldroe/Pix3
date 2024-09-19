@@ -13,11 +13,12 @@ struct Asset {
     Asset_Kind kind;
     
     OS_File *file;
-    f32 frame_t;
     f32 duration;
+    f32 frame_t;
+    f32 elapsed_t;
+    s64 texture_count;
     R_Handle *textures;
     u8 *bitmap;
-    s64 texture_count;
 };
 
 struct Asset_List {
@@ -43,21 +44,18 @@ struct Camera_2D {
     f32 zoom;
 };
 
-struct App_State {
+struct GUI_State {
     Arena *arena;
-    String8 current_directory;
-
     File_System_State *fs_state;
     b32 file_system_active;
 
     UI_Scroll_Pt film_strip_scroll_pt;
     b32 film_strip_active;
+};
 
-    //@Note Asset files for current directory
-    // Arena *cached_files_arena;
-    // s32 cached_file_count;
-    // OS_File *cached_files;
-    // s32 current_file_index;
+struct App_State {
+    Arena *arena;
+    String8 current_directory;
 
     Arena *asset_arena;
     Asset_List assets;

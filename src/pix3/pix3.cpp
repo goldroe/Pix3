@@ -14,6 +14,7 @@ struct Input {
 };
 
 global App_State *g_app_state;
+global GUI_State *g_gui_state;
 global Input g_input;
 
 internal v2 get_mouse_drag_delta() {
@@ -54,9 +55,19 @@ internal Asset *asset_load(App_State *app_state, String8 file_name) {
     for (Asset *asset = app_state->assets.first; asset; asset = asset->next) {
         String8 file_path = path_join(scratch, app_state->current_directory, asset->file->file_name);
         if (str8_match(asset->file->file_name, file_name, StringMatchFlag_CaseInsensitive)) {
-            int x, y, n;
-            u8 *bitmap = stbi_load((char *)file_path.data, &x, &y, &n, 4);
+            int x, y, z, n;
+            u8 *bitmap = nullptr;
+            
+            //@Note Loading GIFS
+            // FILE *file = fopen((char *)file_path.data, "r");
+            // int *delays;
+            // stbi__context s;
+            // stbi__start_file(&s, file);
+            // // bitmap = (u8 *)stbi__load_gif_main(&s, &delays, &x, &y, &z, &n, 4);
+
+            bitmap = stbi_load((char *)file_path.data, &x, &y, &n, 4);
             Assert(bitmap);
+
             R_Handle texture = d3d11_create_texture(R_Tex2DFormat_R8G8B8A8, v2s32(x, y), bitmap);
             stbi_image_free(bitmap);
             asset->kind = AssetKind_Image;
@@ -169,7 +180,7 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         g_app_state->camera.zoom = 1.f;
     }
 
-    File_System_State *fs_state = g_app_state->fs_state;
+    File_System_State *fs_state = g_gui_state->fs_state;
 
     //@Note Input begin
     {
@@ -180,15 +191,14 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
             {
                 String8 file_path = evt->text;
                 String8 directory = path_strip_dir_name(arena_alloc(get_malloc_allocator(), file_path.count + 1), file_path);
-                // if (path_is_relative) {
-                    // full_path = path_join(arena_alloc(get_malloc_allocator(), directory.count + file_name.count + 1), directory, file_name);
-                // }
                 String8 file_name = path_file_name(file_path);
                 load_directory_files(g_app_state, directory);
                 Asset *asset = asset_load(g_app_state, file_name);
                 set_current_asset(asset);
+                g_gui_state->film_strip_active = false;
                 break;
             }
+
             case OS_EventKind_MouseMove:
                 g_input.mouse_position = evt->pos;
                 break;
@@ -216,6 +226,10 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         }
     }
 
+    if (key_down(OS_KEY_ESCAPE)) {
+        os_quit(0);
+    }
+
     Rect client_rect = os_client_rect_from_window(window_handle);
     v2 client_dim = rect_dim(client_rect);
 
@@ -223,34 +237,53 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
 
     ui_begin_build(dt * 1000.f, window_handle, events);
 
+    {
+        ui_push_font(default_fonts[FONT_DEFAULT]);
+        ui_push_text_alignment(UI_TextAlign_Center);
+        ui_push_child_layout_axis(Axis_Y);
+        ui_push_background_color(V4(.11f, .11f, .11f, 1.f));
+        ui_push_text_color(V4(.64f, .64f, .64f, 1.f));
+        ui_push_border_color(V4(.31f, .29f, .27f, 1.f));
+        ui_push_hover_color(V4(1.f, 1.f, 1.f, .1f));
+        ui_push_border_thickness(0.f);
+        ui_push_hover_cursor(OS_Cursor_Arrow);
+        ui_push_pref_width(ui_px(100.f, 1.f));
+        ui_push_pref_height(ui_px(20.f, 1.f));
+        ui_push_box_flags(UI_BoxFlag_Nil);
+    }
+
     //@Note Top bar
     ui_set_next_pref_width(ui_pct(1.f, 0.f));
-    ui_set_next_pref_height(ui_text_dim(0.f, 1.f));
-    UI_Row
-        UI_PrefWidth(ui_text_dim(6.f, 1.f))
+    ui_set_next_pref_height(ui_children_sum(1.f));
+    UI_Box *top_bar_box = ui_named_row_begin(str8_lit("###top_bar"));
+    UI_PrefWidth(ui_text_dim(6.f, 1.f))
         UI_PrefHeight(ui_text_dim(0.f, 1.f))
     {
+        //@Note Reset top bar info
+        arena_clear(os_window_arena);
+        g_custom_title_bar_client_area_node = nullptr;
+
+        os_set_custom_title_bar(rect_dim(top_bar_box->rect).y);
+
         Asset *asset = g_app_state->current_asset;
         if (asset) {
             String8 file_name = asset->file->file_name;
             ui_labelf("%s", file_name.data);
         }
 
-        if (ui_clicked(ui_button(str8_lit("Open")))) {
-            g_app_state->file_system_active = true;
+        String8 open_icon_string = ui_string_from_icon_kind(UI_IconKind_Folder, "###open");
+        ui_set_next_font(default_fonts[FONT_ICON]);
+        UI_Signal open_sig = ui_button(open_icon_string);
+        if (ui_clicked(open_sig)) {
+            g_gui_state->file_system_active = true;
             ui_text_edit_insert(fs_state->path_buffer, ArrayCount(fs_state->path_buffer), &fs_state->path_pos, &fs_state->path_len, g_app_state->current_directory);
             file_system_load_files(fs_state, str8(fs_state->path_buffer, fs_state->path_len));
         }
 
-        UI_Signal sampler_sig = ui_buttonf("%s###sampler_opt", g_app_state->point_sample ? "Point" : "Linear");
-        if (ui_clicked(sampler_sig)) {
-            g_app_state->point_sample = !g_app_state->point_sample;
-        }
-
-        // UI_Signal rotate_sig = ui_button(str8_lit("Rotate"));
-        // if (ui_clicked(rotate_sig)) {
-        //     // g_app_state->rot += 90.f;
-        //     // if (g_app_state->rot >= 360.f) g_app_state->rot = 0.f;
+        //@Note Change sampler
+        // UI_Signal sampler_sig = ui_buttonf("%s###sampler_opt", g_app_state->point_sample ? "Point" : "Linear");
+        // if (ui_clicked(sampler_sig)) {
+        //     g_app_state->point_sample = !g_app_state->point_sample;
         // }
 
         String8 trash_icon_string = ui_string_from_icon_kind(UI_IconKind_Trash, "###trash");
@@ -258,7 +291,38 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         UI_Signal trash_sig = ui_button(trash_icon_string);
         if (ui_clicked(trash_sig)) {
         }
+
+        ui_spacer(Axis_X, ui_pct(1.f, 0.f));
+
+        ui_set_next_font(default_fonts[FONT_ICON]);
+        String8 min_icon_string = ui_string_from_icon_kind(UI_IconKind_CircleMinus, "###minimize");
+        UI_Signal min_sig = ui_button(min_icon_string);
+        if (ui_clicked(min_sig)) {
+            os_window_minimize(window_handle);
+        }
+
+        ui_set_next_font(default_fonts[FONT_ICON]);
+        String8 max_icon_string = ui_string_from_icon_kind(UI_IconKind_Maximize, "###maximize");
+        UI_Signal max_sig = ui_button(max_icon_string);
+        if (ui_clicked(max_sig)) {
+            os_window_maximize(window_handle);
+        }
+
+        ui_set_next_background_color(V4(.5f, .2f, 0.15f, 1.f));
+        ui_set_next_font(default_fonts[FONT_ICON]);
+        String8 exit_icon_string = ui_string_from_icon_kind(UI_IconKind_Cancel, "###exit");
+        UI_Signal exit_sig = ui_button(exit_icon_string);
+        if (ui_clicked(exit_sig)) {
+            os_quit(0);
+        }
+
+        os_push_custom_title_bar_client_area(open_sig.box->rect);
+        os_push_custom_title_bar_client_area(trash_sig.box->rect);
+        os_push_custom_title_bar_client_area(min_sig.box->rect);
+        os_push_custom_title_bar_client_area(max_sig.box->rect);
+        os_push_custom_title_bar_client_area(exit_sig.box->rect);
     }
+    ui_row_end();
 
     //@Note Debug information
     UI_PrefWidth(ui_text_dim(4.f, 1.f))
@@ -306,7 +370,7 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
     ui_spacer(Axis_Y, ui_pct(1.f, 0.f));
 
     //@Note Film Strip
-    if (g_app_state->film_strip_active) {
+    if (g_gui_state->film_strip_active) {
         v2 img_dim = V2(96.f, 72.f);
         f32 x = 0.f;
         f32 padding = 4.f;
@@ -318,12 +382,12 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         UI_Parent(film_strip_container) {
             int file_idx = 0;
             for (Asset *asset = g_app_state->assets.first; asset; asset = asset->next, file_idx++) {
-                ui_set_next_fixed_x(x - g_app_state->film_strip_scroll_pt.idx * img_dim.x);
+                ui_set_next_fixed_x(x - g_gui_state->film_strip_scroll_pt.idx * img_dim.x);
                 ui_set_next_fixed_y(0.f);
                 ui_set_next_fixed_width(img_dim.x);
                 ui_set_next_fixed_height(img_dim.y);
                 ui_set_next_box_flags(UI_BoxFlag_Clickable);
-                ui_set_next_border_thickness(14.f);
+                ui_set_next_border_thickness(6.f);
                 UI_Signal img_sig = ui_imagef(asset->textures[0], "###img_%d", file_idx);
                 if (ui_clicked(img_sig)) {
                     g_app_state->current_asset = asset;
@@ -335,7 +399,7 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         if (g_app_state->assets.count * img_dim.x > client_dim.x) {
             ui_spacer(Axis_Y, ui_px(4.f, 1.f));
             ui_set_next_pref_width(ui_pct(1.f, 1.f));
-            g_app_state->film_strip_scroll_pt = ui_scroll_bar(str8_lit("###bar"), Axis_X, ui_px(10.f, 1.f), g_app_state->film_strip_scroll_pt, rng_s64(0, (s64)(rect_width(film_strip_container->rect) / img_dim.x)), g_app_state->assets.count);
+            g_gui_state->film_strip_scroll_pt = ui_scroll_bar(str8_lit("###bar"), Axis_X, ui_px(10.f, 1.f), g_gui_state->film_strip_scroll_pt, rng_s64(0, (s64)(rect_width(film_strip_container->rect) / img_dim.x)), g_app_state->assets.count);
         }
     }
 
@@ -355,9 +419,9 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         }
 
         ui_set_next_font(default_fonts[FONT_ICON]);
-        String8 film_string = ui_string_from_icon_kind(UI_IconKind_Images, "###film");
+        String8 film_string = ui_string_from_icon_kind(UI_IconKind_Image, "###film");
         if (ui_clicked(ui_button(film_string))) {
-            g_app_state->film_strip_active = !g_app_state->film_strip_active;
+            g_gui_state->film_strip_active = !g_gui_state->film_strip_active;
             for (Asset *asset = g_app_state->assets.first; asset; asset = asset->next) {
                 if (!asset->textures) {
                     asset_load(g_app_state, asset->file->file_name);
@@ -371,8 +435,8 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
 
         f32 h_r = client_dim.x / (f32)size.x;
         f32 v_r = client_dim.y / (f32)size.y;
-        String8 zoom_in_string = ui_string_from_icon_kind(UI_IconKind_ZoomPlus, "###zoom_in");
-        String8 zoom_out_string = ui_string_from_icon_kind(UI_IconKind_ZoomMinus, "###zoom_out");
+        String8 zoom_in_string = ui_string_from_icon_kind(UI_IconKind_CirclePlus, "###zoom_in");
+        String8 zoom_out_string = ui_string_from_icon_kind(UI_IconKind_CircleMinus, "###zoom_out");
         ui_set_next_font(default_fonts[FONT_ICON]);
         if (ui_clicked(ui_button(zoom_in_string))) {
             g_app_state->camera.zoom += .1f;
@@ -395,16 +459,22 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
     //@Note Arrows
     {
         Asset *current_asset = g_app_state->current_asset;
-        if (current_asset && current_asset->prev &&
-            g_input.mouse_position.x <= 100.f) {
-            ui_set_next_fixed_x(10.f);
-            ui_set_next_fixed_y(client_dim.y / 2.f);
-            ui_set_next_pref_width(ui_text_dim(1.f, 1.f));
-            ui_set_next_pref_height(ui_text_dim(1.f, 1.f));
-            ui_set_next_font(default_fonts[FONT_ICON]);
-            String8 left_arrow_string = ui_string_from_icon_kind(UI_IconKind_ArrowLeft, "###left_arrow");
-            UI_Signal sig = ui_button(left_arrow_string);
-            if (ui_clicked(sig)) {
+        if (current_asset && current_asset->prev) {
+            bool load_prev = false;
+            if (key_pressed(OS_KEY_LEFT)) load_prev = true;
+            
+            if (g_input.mouse_position.x <= 100.f) {
+                ui_set_next_fixed_x(10.f);
+                ui_set_next_fixed_y(client_dim.y / 2.f);
+                ui_set_next_pref_width(ui_text_dim(1.f, 1.f));
+                ui_set_next_pref_height(ui_text_dim(1.f, 1.f));
+                ui_set_next_font(default_fonts[FONT_ICON]);
+                String8 left_arrow_string = ui_string_from_icon_kind(UI_IconKind_DirLeft, "###left_arrow");
+                UI_Signal sig = ui_button(left_arrow_string);
+                if (ui_clicked(sig)) load_prev = true;
+            }
+
+            if (load_prev) {
                 current_asset = current_asset->prev;
                 if (!current_asset->textures) {
                     current_asset = asset_load(g_app_state, current_asset->file->file_name);
@@ -412,16 +482,23 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
                 set_current_asset(current_asset);
             }
         }
-        if (current_asset && current_asset->next &&
-            g_input.mouse_position.x >= client_dim.x - 100.f) {
-            ui_set_next_fixed_x(client_dim.x - 20.f);
-            ui_set_next_fixed_y(client_dim.y / 2.f);
-            ui_set_next_pref_width(ui_text_dim(1.f, 1.f));
-            ui_set_next_pref_height(ui_text_dim(1.f, 1.f));
-            ui_set_next_font(default_fonts[FONT_ICON]);
-            String8 right_arrow_string = ui_string_from_icon_kind(UI_IconKind_ArrowRight, "###right_arrow");
-            UI_Signal sig = ui_button(right_arrow_string);
-            if (ui_clicked(sig)) {
+
+        if (current_asset && current_asset->next) {
+            bool load_next = false;
+            if (key_pressed(OS_KEY_RIGHT)) load_next = true;
+            
+            if (g_input.mouse_position.x >= client_dim.x - 100.f) {
+                ui_set_next_fixed_x(client_dim.x - 20.f);
+                ui_set_next_fixed_y(client_dim.y / 2.f);
+                ui_set_next_pref_width(ui_text_dim(1.f, 1.f));
+                ui_set_next_pref_height(ui_text_dim(1.f, 1.f));
+                ui_set_next_font(default_fonts[FONT_ICON]);
+                String8 right_arrow_string = ui_string_from_icon_kind(UI_IconKind_DirRight, "###right_arrow");
+                UI_Signal sig = ui_button(right_arrow_string);
+                if (ui_clicked(sig)) load_next = true;
+            }
+
+            if (load_next) {
                 current_asset = current_asset->next;
                 if (!current_asset->textures) {
                     current_asset = asset_load(g_app_state, current_asset->file->file_name);
@@ -432,7 +509,7 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
     }
 
     //@Note File System
-    if (g_app_state->file_system_active) {
+    if (g_gui_state->file_system_active) {
         Arena *scratch = make_arena(get_malloc_allocator());
         bool reload_files = false;
 
@@ -469,7 +546,7 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
                 ui_set_next_pref_width(ui_text_dim(4.f, 1.f));
                 ui_set_next_pref_height(ui_text_dim(2.f, 1.f));
                 if (ui_clicked(ui_button(str8_lit("X")))) {
-                    g_app_state->file_system_active = false;
+                    g_gui_state->file_system_active = false;
                 }
             }
 
@@ -557,6 +634,14 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         
         Asset *asset = g_app_state->current_asset;
         R_Handle tex = asset->textures[0];
+        if (asset->kind == AssetKind_Animation) {
+            if (asset->elapsed_t > asset->duration) {
+                asset->elapsed_t = 0.f;
+            }
+            int frame_index = (int)(asset->elapsed_t / asset->frame_t);
+            tex = asset->textures[frame_index];
+        }
+
         v2_s32 size = r_texture_size(tex);
         m4 scale = scale_m4(V3((f32)size.x, (f32)size.y, 1.f));
 

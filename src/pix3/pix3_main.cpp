@@ -56,19 +56,25 @@ int main(int argc, char **argv) {
 
 #define CLASSNAME "PIX3_WINDOW_CLASS"
     HINSTANCE hinstance = GetModuleHandle(NULL);
-    WNDCLASSA window_class{};
+    WNDCLASSEXA window_class{};
+    window_class.cbSize = sizeof(WNDCLASSEXA);
     window_class.style = CS_HREDRAW | CS_VREDRAW;
     window_class.lpfnWndProc = win32_proc;
     window_class.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     window_class.lpszClassName = CLASSNAME;
     window_class.hInstance = hinstance;
     window_class.hCursor = LoadCursorA(NULL, IDC_ARROW);
-    if (!RegisterClassA(&window_class)) {
-        printf("RegisterClassA failed, err:%d\n", GetLastError());
+    if (!RegisterClassExA(&window_class)) {
+        printf("RegisterClassExA failed, err:%d\n", GetLastError());
     }
 
-    HWND hWnd = CreateWindowExA(WS_EX_ACCEPTFILES, CLASSNAME, "PIX3", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hinstance, NULL);
+    HWND hWnd = CreateWindowExA(WS_EX_ACCEPTFILES, CLASSNAME, "PIX3", WS_SIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hinstance, NULL);
     DragAcceptFiles(hWnd, TRUE);
+
+    os_window_arena = make_arena(get_malloc_allocator());
+
+    SetWindowLong(hWnd, GWL_STYLE, 0); //remove all window styles, check MSDN for details
+    ShowWindow(hWnd, SW_SHOW); //display window
 
     OS_Handle window_handle = (OS_Handle)hWnd;
 
@@ -79,8 +85,9 @@ int main(int argc, char **argv) {
     String8 font_path = str8_concat(font_arena, exe_path, str8_lit("data/fonts/SegUI.ttf"));
     default_fonts[FONT_DEFAULT] = load_font(font_arena, font_path, 16);
 
-    u32 icon_font_glyphs[] = { 0xf07b, 0xf15b, 0xf1c5, 0xf302, 0xf062, 0xf063, 0xf191, 0xf152, 0xf410, 0xf0fe, 0xf146, 0xf2ed};
-    String8 icon_font_path = str8_concat(font_arena, exe_path, str8_lit("data/fonts/" FONT_ICON_FILE_NAME_FAR));
+    //@Note Hardcoding character codes for icon font
+    u32 icon_font_glyphs[] = { 120, 33, 49, 71, 110, 85, 68, 76, 82, 57, 48, 55, 56, 43, 45, 123, 125, 70, 67, 35, 70, 72 };
+    String8 icon_font_path = str8_concat(font_arena, exe_path, str8_lit("data/fonts/icons.ttf"));
     default_fonts[FONT_ICON] = load_icon_font(font_arena, icon_font_path, 18, icon_font_glyphs, ArrayCount(icon_font_glyphs));
 
     ui_set_state(ui_state_new());
@@ -89,31 +96,35 @@ int main(int argc, char **argv) {
         Arena *arena = make_arena(get_malloc_allocator());
         g_app_state = push_array(arena, App_State, 1);
         g_app_state->arena = arena;
-        g_app_state->fs_state = push_array(arena, File_System_State, 1);
     }
 
-    // String8 file_name = str8_zero();
-    // String8 directory = str8_zero();
-    // //@Note Load initial files
-    // Arena *scratch = make_arena(get_malloc_allocator());
-    // for (int i = 1; i < argc; i++) {
-    //     char *arg = argv[i];
-    //     String8 argument = str8_cstring(arg);
-    //     //@Todo Options
-    //     if (arg[0] == '-') {
-    //     } else {
-    //         file_name = argument;
-    //         directory = path_strip_dir_name(scratch, argument);
-    //         asset_load(g_app_state, argument);
-    //     }
-    // }
+    {
+        Arena *arena = make_arena(get_malloc_allocator());
+        g_gui_state = push_array(arena, GUI_State, 1);
+        g_gui_state->arena = arena;
+        g_gui_state->fs_state = push_array(arena, File_System_State, 1);
+    }
 
-    // if (!directory.data) {
-    //     directory = os_current_dir(g_app_state->arena);
-    // }
+    if (argc > 1) {
+        //@Note Load initial files
+        Arena *scratch = make_arena(get_malloc_allocator());
+        String8 file_path = str8_zero();
+        String8 directory = str8_zero();
+        String8 argument = str8_cstring(argv[1]);
 
-    // load_directory_files(file_name, directory);
-    // register_directory_files(file_name, directory);
+        if (path_is_absolute(argument)) {
+            file_path = argument;
+        } else {
+            String8 current_dir = os_current_dir(scratch);
+            file_path = path_join(scratch, current_dir, argument);
+        }
+        directory = path_strip_dir_name(scratch, file_path);
+        String8 file_name = path_strip_file_name(scratch, file_path);
+
+        load_directory_files(g_app_state, directory);
+        Asset *asset = asset_load(g_app_state, file_name);
+        set_current_asset(asset);
+    }
 
     v2 old_window_dim = V2();
     
@@ -145,6 +156,7 @@ int main(int argc, char **argv) {
 
         update_and_render(&win32_events, window_handle, dt / 1000.f);
 
+       
         win32_events.first = nullptr;
         win32_events.last = nullptr;
         win32_events.count = 0;

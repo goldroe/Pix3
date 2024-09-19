@@ -13,6 +13,16 @@ global char *ui_g_icon_kind_strings[UI_IconKind_COUNT] = {
     "J",
     "K",
     "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
 };
 internal String8 ui_string_from_icon_kind(UI_Icon_Kind kind, const char *end) {
     char *icon_string = ui_g_icon_kind_strings[kind];
@@ -740,19 +750,6 @@ internal void ui_begin_build(f32 animation_dt, OS_Handle window_handle, OS_Event
     ui_state->hover_color_stack.top = NULL; ui_state->hover_color_stack.first_free = NULL; ui_state->hover_color_stack.auto_pop = false;
     ui_state->hover_cursor_stack.top = NULL; ui_state->hover_cursor_stack.first_free = NULL; ui_state->hover_cursor_stack.auto_pop = false;
     ui_state->border_thickness_stack.top = NULL; ui_state->border_thickness_stack.first_free = NULL; ui_state->border_thickness_stack.auto_pop = false;
-
-    ui_push_font(default_fonts[FONT_DEFAULT]);
-    ui_push_text_alignment(UI_TextAlign_Center);
-    ui_push_child_layout_axis(Axis_Y);
-    ui_push_background_color(V4(.15f, .15f, .15f, 1.f));
-    ui_push_text_color(V4(.92f, .86f, .7f, 1.f));
-    ui_push_border_color(V4(.31f, .29f, .27f, 1.f));
-    ui_push_hover_color(V4(1.f, 1.f, 1.f, .3f));
-    ui_push_border_thickness(0.f);
-    ui_push_hover_cursor(OS_Cursor_Arrow);
-    ui_push_pref_width(ui_px(100.f, 1.f));
-    ui_push_pref_height(ui_px(20.f, 1.f));
-    ui_push_box_flags(UI_BoxFlag_Nil);
 
     ui_state->build_counter = 0;
 

@@ -257,18 +257,28 @@ struct UI_Signal {
 };
 
 enum UI_Icon_Kind {
-    UI_IconKind_Folder,
-    UI_IconKind_File,
-    UI_IconKind_Image,
-    UI_IconKind_Images,
+    UI_IconKind_Cancel,
+    UI_IconKind_CheckBox,
+    UI_IconKind_CheckBoxFill,
+    UI_IconKind_Config,
+    UI_IconKind_Maximize,
     UI_IconKind_ArrowUp,
     UI_IconKind_ArrowDown,
     UI_IconKind_ArrowLeft,
     UI_IconKind_ArrowRight,
-    UI_IconKind_WindowClose,
-    UI_IconKind_ZoomPlus,
-    UI_IconKind_ZoomMinus,
+    UI_IconKind_DirUp,
+    UI_IconKind_DirDown,
+    UI_IconKind_DirLeft,
+    UI_IconKind_DirRight,
+    UI_IconKind_CirclePlus,
+    UI_IconKind_CircleMinus,
+    UI_IconKind_SquarePlus,
+    UI_IconKind_SquareMinus,
+    UI_IconKind_File,
+    UI_IconKind_Folder,
     UI_IconKind_Trash,
+    UI_IconKind_Image,
+    UI_IconKind_Images,
     UI_IconKind_COUNT
 };
 

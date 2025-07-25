@@ -147,7 +147,7 @@ internal void load_directory_files(App_State *app_state, String8 directory) {
     do {
         if (str8_match(find_file.file_name, str8_lit("."), StringMatchFlag_Nil) || str8_match(find_file.file_name, str8_lit(".."), StringMatchFlag_Nil)) continue;
 
-        String8 full_path = str8_concat(scratch, directory, find_file.file_name);
+        String8 full_path = path_join(scratch, directory, find_file.file_name);
         if (stbi_info((char *)full_path.data, NULL, NULL, NULL)) {
             OS_File *file = push_array(app_state->asset_arena, OS_File, 1);
             *file = find_file;
@@ -178,6 +178,8 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
         first_call = false;
         g_app_state->point_sample = true;
         g_app_state->camera.zoom = 1.f;
+        //@Todo: Initialize current directory
+        g_app_state->current_directory = str8_lit("C:/");
     }
 
     File_System_State *fs_state = g_gui_state->fs_state;
@@ -530,6 +532,9 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
                 ui_set_next_pref_width(ui_pct(1.f, 0.f));
                 ui_set_next_pref_height(ui_text_dim(2.f, 1.f));
                 u64 len = fs_state->path_len;
+                if (len == 0) {
+                    ui_text_edit_insert(fs_state->path_buffer, ArrayCount(fs_state->path_buffer), &fs_state->path_pos, &fs_state->path_len, g_app_state->current_directory);
+                }
                 UI_Signal prompt_sig = ui_line_edit(str8_lit("###prompt"), fs_state->path_buffer, ArrayCount(fs_state->path_buffer), &fs_state->path_pos, &fs_state->path_len);
                 if (ui_pressed(prompt_sig)) {
                     if (prompt_sig.key == OS_KEY_SLASH || prompt_sig.key == OS_KEY_BACKSLASH) {
@@ -576,9 +581,10 @@ internal void update_and_render(OS_Event_List *events, OS_Handle window_handle, 
                     if (file.flags & OS_FileFlag_Directory) {
                         file_system_load_files(fs_state, new_path);
                     } else {
-                        // Asset *asset = asset_load(new_path);
-                        // set_current_asset(asset); 
-                        // g_app_state->file_system_active = false;
+                        load_directory_files(g_app_state, file_path);
+                        Asset *asset = asset_load(g_app_state, file.file_name);
+                        set_current_asset(asset); 
+                        g_gui_state->file_system_active = false;
                     }
                 }
             }
